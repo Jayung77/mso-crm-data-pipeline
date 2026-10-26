@@ -1,75 +1,205 @@
-# 🏥 의료 MSO 비즈니스 데이터 파이프라인 및 CRM 데이터 정합성 검증
+**네, 6번뿐만 아니라 헤더부터 맨 아래까지 빠짐없이 순서대로 전부 넣으시면 됩니다\!**
 
-> **HeidiSQL, Excel, Google Sheets**를 활용하여 일일 트랜잭션 데이터를 추출하고, CRM 데이터의 논리적 오류를 검증·정제(Data QA)한 뒤 실시간 경영 KPI 대시보드를 구축한 End-to-End 데이터 운영 프로젝트입니다.
+아래 코드 블록 우측 상단의 **`복사(Copy)`** 버튼을 누르시면, GitHub 저장소의 `README.md` 편집창에 **한 번에 통째로 붙여넣기(Ctrl+V)** 하실 수 있도록 완전체 마크다운 코드로 준비했습니다.
+
+```` markdown
+# 🏥 의료 MSO 비즈니스 데이터 파이프라인 및 CRM Data QA
+> **의료 MSO 환경의 결제·예약 트랜잭션 무결성 검증(Data QA) 및 실시간 경영 의사결정 KPI 대시보드 구축**
+
+[![Tech Stack](https://img.shields.io/badge/Stack-MySQL%20%7C%20HeidiSQL%20%7C%20Excel%20%7C%20GoogleSheets-blue)](https://github.com/Jayung77/mso-crm-data-pipeline)
+[![Data QA](https://img.shields.io/badge/Data%20QA-9%20Errors%20Cleaned%20(100%25)-success)](https://github.com/Jayung77/mso-crm-data-pipeline)
+[![Target Role](https://img.shields.io/badge/Target%20Role-Data%20Analyst%20%7C%20Data%20Ops%20%7C%20Hospital%20IT-orange)](https://github.com/Jayung77/mso-crm-data-pipeline)
 
 ---
 
 ## 🛠️ 사용 기술 스택
-* **Database & Query:** SQL, HeidiSQL, MySQL
-* **Data QA & Cleansing:** Microsoft Excel (`VLOOKUP`, `IF`/`AND`/`OR` 복합 논리 함수, 조건부 서식, 필터)
-* **BI & Dashboard:** Google Sheets (`COUNTIFS`, `SUMIF`/`SUMIFS`)
+- **Database & Query:** SQL, MySQL, HeidiSQL
+- **Data QA & Governance:** Microsoft Excel (`VLOOKUP`, 다중 논리 함수 `IF`/`AND`/`OR`, 조건부 서식, 필터)
+- **BI & Dynamic Dashboard:** Google Sheets (`COUNTIFS`, `SUMIFS`, `LET`, `UNIQUE`, `SORT`, `CHOOSEROWS`)
 
 ---
 
-## 📌 1. 프로젝트 배경 및 목표 (Overview)
-
-* **추진 배경:**
-  * 현업 MSO(병원경영지원) 환경에서 예약 시스템과 결제/수납 기록 간의 불일치(휴먼 에러, 수납 누락, 취소 미반영 등) 빈번 발생
-  * 데이터 정합성이 깨진 상태로 집계되어 일일 실적(실 수납액, 미수 잔금, 신환 수) 확인 지연 및 경영진 의사결정 왜곡 초래
-* **핵심 목표:**
-  * 일 단위 원천 데이터 정기 추출 프로세스 수립
-  * 엑셀 다중 함수 기반의 데이터 무결성 검증(QA) 템플릿 구축 및 오류 0%화
-  * 정제 데이터 기반 구글 스프레드시트 일일/기간별 KPI 대시보드 자동화
-
----
-
-## 🗄️ 2. 데이터 파이프라인 프로세스 (Workflow)
-### Step 1. 일일 트랜잭션 데이터 정기 추출 (Data Extraction)
-* **테이블 구조 분리:** 기준정보 테이블(`customer_master`, 20건)과 일일 예약·수납 트랜잭션 테이블(`crm_transaction_log`, 50건) 분리 관리
-* **정기 쿼리 운영:** 일 단위 예약일자, 유입경로, 진료과목, 결제금액, 잔금 등 10개 핵심 필드 추출
-
-### Step 2. 엑셀 기반 데이터 정합성 검증 (Data QA & Cleansing)
-원천 데이터 50건 중 **총 9건의 논리적 이상치 및 오류**를 함수로 탐지 후 정제:
-1. **기준정보 누락 검증 (`VLOOKUP`):**
-   * 수식: `=VLOOKUP($C2, customer_master!$A$2:$F$21, 1, 0)`
-   * 결과: 회원 마스터에 미등록된 차트번호 3건(`C299999`, `C288888`, `C277777`) `#N/A` 탐지 ➔ 식별 불가 이상치로 판단하여 **행 제외 처리**
-2. **비즈니스 로직 모순 검증 (`IF/OR/AND`):**
-   * 수식: `=IF(OR(G2="예약취소", G2="노쇼"), IF(AND(I2=0, J2=0), TRUE, FALSE), TRUE)`
-   * 결과: 예약취소/노쇼 상태임에도 결제액이나 잔금이 잡힌 행 5건 `FALSE` 탐지 ➔ **결제액 및 잔금 0원 보정**
-3. **수납 이상치 검증:**
-   * 결과: 잔금이 음수(-20,000원)로 오입력된 수납 기입 오류 1건 탐지 ➔ **0원 정상화 조치**
-
-### Step 3. Google Sheets KPI 대시보드 운영 (BI Dashboard)
-검증이 완료된 순수 47건의 정제 데이터를 기반으로 경영 지표 집계:
-* **상단 핵심 지표 카드 (Scorecard):**
-  * 총 수납금액: `13,804,000원`
-  * 총 미수 잔금: `900,000원`
-  * 신규 환자(신환) 유입 수: `15명` (`COUNTIFS` 활용, 실제 진료완료 기준)
-  * 총 진료 완료 건수: `34건`
-* **마케팅 채널별 성과 분석 표:** 유입경로별 예약 수, 노쇼 수, 예약취소 수, 실제 수납금액, 미수 잔금 크로스 집계
-* **날짜별 마감 실적 표:** 2026-10-15 ~ 10-18 일자별 마감 매출 및 잔금 추이 집계
+## 📌 1. 프로젝트 배경 및 추진 목표 (Overview)
+- **추진 배경:**
+  - 현업 의료 MSO(병원경영지원) 환경에서 환자 예약 시스템과 수납 단말기 기록 간의 휴먼 에러, 수납 누락, 취소 미반영 등으로 인한 데이터 불일치 빈번 발생.
+  - 데이터 정합성이 결여된 상태로 집계 시 실 수납액 과대 계상, 미수금 누락 등 경영진 의사결정 왜곡 초래.
+- **핵심 목표:**
+  1. **데이터 무결성(Data QA) 100% 확보**: 다중 검증 함수와 SQL을 활용한 논리적 이상치 9건 전수 탐지 및 정제.
+  2. **재발 방지 시스템 거버넌스 수립**: RDBMS 무결성 제약 조건(FK, CHECK) 및 4단계 정기 마감 QA 체계 설계.
+  3. **심화 비즈니스 인사이트 도출**: 신환/구환 세그먼트 분석 및 채널별 이탈률(노쇼/취소) 기반 실행 전략 제언.
 
 ---
 
-## 🔍 3. 핵심 성과 및 비즈니스 인사이트 (Key Insights)
+## 🗄️ 2. 데이터 아키텍처 & 관계형 모델링 (ERD)
 
-1. **데이터 무결성(Data Integrity) 100% 확보:**
-   * 엑셀 자동 검증 템플릿을 통해 원천 데이터의 이상치 9건을 사전에 차단하여, 매출 지표의 과대 계상 및 왜곡 방지
-2. **마케팅 유입 채널별 실질 기여도 식별:**
-   * 단순 예약 모수 대비 '인스타그램' 유입군이 총 4,245,000원으로 전체 매출의 약 31%를 차지하는 최고 효율 채널임을 정량적으로 도출
-3. **경영 의사결정 속도 개선:**
-   * 실시간 잔금(90만 원) 및 신환 필요 매출을 일 단위로 즉시 추적할 수 있는 모니터링 환경을 제공하여 차월 매출 목표 설정안 수립 지원
+환자 기준정보 마스터와 일일 예약/수납 트랜잭션 로그 간의 **1:N 관계형 데이터 스키마**를 설계하여 데이터 중복을 제거하고 참조 무결성을 보장했습니다.
 
----
+```text
+[customer_master] (환자 마스터 / 20건)
+├── Chart_No (PK, VARCHAR(20))
+├── Customer_ID (VARCHAR(20))
+├── Customer_Name (VARCHAR(50))
+├── Phone_Number (VARCHAR(20))
+├── Customer_Grade (ENUM('일반', '우수', 'VIP'))
+└── Join_Date (DATE)
+       │ 1
+       │
+       │ N (1:N 참조 무결성 연결)
+       ▼
+[crm_transaction_log] (진료/결제 트랜잭션 / 50건)
+├── Reservation_Date (DATE)
+├── Reservation_Time (TIME)
+├── Chart_No (FK, REFERENCES customer_master)
+├── Is_First_Visit (CHAR(1), CHECK IN ('Y', 'N'))
+├── Inflow_Channel (VARCHAR(30))
+├── Consultant_ID (VARCHAR(20))
+├── Reservation_Status (ENUM('진료완료', '노쇼', '예약취소'))
+├── Treatment_Item (VARCHAR(50))
+├── Payment_Amount (INT, CHECK >= 0)
+└── Unpaid_Amount (INT, CHECK >= 0)
+
+````
+
+-----
+
+## 🔍 3. 데이터 파이프라인 및 정합성 검증 (Data QA & Cleansing)
+
+원천 데이터 50건 중 **총 9건의 이상치 및 논리적 오류**를 3단계로 탐지하여 데이터 신뢰도를 100%로 복원했습니다.
+
+| 구분        | 검증 유형                     | 발생 시나리오 및 이상 데이터                                       | 검증 및 조치 방식 (수식 / SQL)                                                                                         | 조치 건수  |
+| :-------: | :-----------------------: | :----------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :----: |
+| **QA-01** | **기준정보 누락<br>(참조 무결성)**   | 마스터에 미등록된 임의 차트번호<br>(`C299999`, `C288888`, `C277777`) | `=VLOOKUP($C2, customer_master!$A$2:$F$21, 1, 0)`<br>➔ `#N/A` 탐지 후 행 제외 처리 (식별 불가 데이터 분리)                     | **3건** |
+| **QA-02** | **비즈니스 모순<br>(가공 매출 방지)** | 예약취소/노쇼 상태임에도 결제액이나 미수 잔금이 잔존                          | `=IF(OR(G2="예약취소", G2="노쇼"), IF(AND(I2=0, J2=0), TRUE, FALSE), TRUE)`<br>➔ `FALSE` 탐지 후 **수납액 및 잔금 0원 일괄 보정** | **5건** |
+| **QA-03** | **수납 이상치<br>(도메인 제약)**    | 결제 단말기/수기 기입 착오로 미수 잔금이 음수(-20,000원)로 표기               | 잔금 0원 정상화 조치 (`Unpaid_Amount = 0`)                                                                            | **1건** |
+
+-----
+
+## 🛡️ 4. 데이터 운영 및 재발 방지 거버넌스 (Data Governance)
+
+일회성 수기 정제에 그치지 않고, 시스템 입력단 원천 차단 및 정기 마감 SLA를 수립했습니다.
+
+### 1\) 시스템 입력단 제약 조건 (System Constraints)
+
+  - **외래키(FK) 참조 무결성 강제**: 마스터에 없는 차트번호 입력 원천 차단.
+  - **예약 부도 시 결제액 0원 강제 규칙**:
+    ``` sql
+    CHECK (
+      (Reservation_Status IN ('노쇼', '예약취소') AND Payment_Amount = 0 AND Unpaid_Amount = 0)
+      OR (Reservation_Status = '진료완료')
+    )
+    
+    ```
+  - **음수 금액 방지**: `CHECK (Payment_Amount >= 0 AND Unpaid_Amount >= 0)`
+
+### 2\) 4단계 QA 운영 주기 (SLA)
+
+1.  **실시간 (Real-time)**: CRM 입력 화면에서 유효성 검사 규칙 적용 (이상치 입력 1차 차단).
+2.  **일일 마감 (19:30)**: PG 카드사 승인 매출과 EMR 수납액 1:1 대사 (오차 0원 검증).
+3.  **익일 감사 (09:00)**: 전일 노쇼/취소 환자의 수납액 0원 보정 여부 일괄 감사.
+4.  **월간 결산**: Zero-Defect 데이터 품질 모니터링 리포트 발행.
+
+-----
+
+## 📊 5. 핵심 경영 인사이트 및 전략적 제언 (Key Insights)
+
+정제 완료된 47건(진료 완료 34건) 데이터를 기반으로 도출한 실행 가능한(Actionable) 전략입니다.
+
+### 💡 1. 인스타그램: 최고 매출 채널 & 미수 잔금 집중 리스크 관리
+
+  - **현황**: 총 5건 진료 완료로 \*\*4,245,000원(전체 수납액의 30.8%)\*\*을 달성한 매출 기여도 1위 채널.
+  - **리스크**: 전체 미수 잔금(900,000원) 중 \*\*88.9%(800,000원)\*\*가 인스타그램 유입 환자에게 편중 (`C250014` 울쎄라 300샷 잔금 30만 원, `C260028` 써마지 600샷 잔금 50만 원).
+  - **실행 제언**: 고단가 프리미엄 시술에 집중된 유입 특성을 고려하여, **사전 예약금(Deposit) 결제 프로토콜 도입** 및 당일 수납 완납 원칙 확립 필요.
+
+### 💡 2. 카카오톡: 이탈률 0% 및 강력한 환자 락인(Lock-in)
+
+  - **현황**: 총 9건 예약 중 노쇼/취소 0건으로 **진료 이행도 100% 달성**, 안정적인 수납액(2,645,000원, 비중 19.2%) 및 미수금 50,000원에 불과.
+  - **실행 제언**: 진료 신뢰도가 검증된 채널이므로 정기 리텐션 알림톡 및 지인 추천 프로모션을 연계하여 충성 고객층으로 확고히 락인.
+
+### 💡 3. 네이버검색 & 당근마켓: 높은 이탈률(노쇼/취소) 개선 및 스케줄링 최적화
+
+  - **현황**: 네이버검색 이탈률 **57.1%**(7건 중 4건), 당근마켓 이탈률 **40.0%**(5건 중 2건). 병원 전체 이탈(13건)의 \*\*46.2%\*\*가 두 채널에 집중되어 원장단 진료 공백 초래.
+  - **실행 제언**: 예약 전일/당일 카카오 알림톡 자동 재확인 시스템 의무화 및 당일 대기 환자를 우선 배정하는 가변 스케줄링(오버부킹 버퍼) 도입.
+
+-----
+
+## 💻 6. 주요 SQL 스크립트 (Core SQL)
+
+\<details\>
+\<summary\>\<b\>▶ Data QA: 이상치 탐지 및 자동 정제 쿼리\</b\>\</summary\>
+
+``` sql
+-- 1. 기준정보 미등록 이상 차트번호 탐지
+SELECT t.*
+FROM crm_transaction_log t
+LEFT JOIN customer_master c ON t.Chart_No = c.Chart_No
+WHERE c.Chart_No IS NULL;
+
+-- 2. 비즈니스 로직 모순 데이터(노쇼/취소 건의 가공 매출) 0원 보정
+UPDATE crm_transaction_log
+SET Payment_Amount = 0, Unpaid_Amount = 0
+WHERE Reservation_Status IN ('노쇼', '예약취소')
+  AND (Payment_Amount > 0 OR Unpaid_Amount > 0);
+
+-- 3. 음수 잔금 정상화
+UPDATE crm_transaction_log
+SET Unpaid_Amount = 0
+WHERE Unpaid_Amount < 0;
+
+```
+
+\</details\>
+
+\<details\>
+\<summary\>\<b\>▶ Business KPI: 일일 마감 및 채널별 성과 집계 쿼리\</b\>\</summary\>
+
+``` sql
+-- 채널별 성과, 신환 비율, 수납액 및 이탈률 집계
+SELECT 
+    Inflow_Channel,
+    COUNT(*) AS Total_Reservations,
+    SUM(CASE WHEN Reservation_Status = '진료완료' THEN 1 ELSE 0 END) AS Completed_Count,
+    SUM(CASE WHEN Reservation_Status = '노쇼' THEN 1 ELSE 0 END) AS No_Show_Count,
+    SUM(CASE WHEN Reservation_Status = '예약취소' THEN 1 ELSE 0 END) AS Cancelled_Count,
+    SUM(Payment_Amount) AS Total_Payment,
+    SUM(Unpaid_Amount) AS Total_Unpaid,
+    ROUND((SUM(CASE WHEN Reservation_Status IN ('노쇼', '예약취소') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS Churn_Rate_Pct
+FROM crm_transaction_log
+GROUP BY Inflow_Channel
+ORDER BY Total_Payment DESC;
+
+```
+
+\</details\>
+
+-----
 
 ## 📂 파일 구성 안내 (Repository Structure)
 
-* **`01_schema_and_dummy_data_setup.sql`**
-  * 기준정보 및 트랜잭션 테이블 생성(`CREATE TABLE`)과 검증용 50건 샘플 데이터 적재(`INSERT INTO`) 스크립트
-  * *(※ 기업 보안 및 개인정보 보호를 위해 비식별화된 가명 데이터로 재구성됨)*
-* **`02_daily_transaction_extraction.sql`**
-  * Excel QA 및 대시보드 반영을 위한 일일/기간별 트랜잭션 추출(`SELECT`) 쿼리
-* **`MSO_CRM_일일운영지표_RAW.xlsx`**
-  * VLOOKUP 및 논리 수식 기반 정합성 검증 시트와 정제 완료 데이터셋 원본 파일
-* **대시보드 원본 링크:**  
-  👉 [Google Sheets 대시보드 바로가기](https://docs.google.com/spreadsheets/d/1RXjJdhmyij5JQC2KHtNI_ndIr7pQMRP8DBqcwKrKr08/edit?hl=ko&pli=1&gid=81384582#gid=81384582)
+  - **`01_schema_and_dummy_data_setup.sql`**
+      - 기준정보 및 트랜잭션 테이블 생성(`CREATE TABLE`, 무결성 제약조건 포함) 및 샘플 데이터 적재 스크립트. *(※ 개인정보 보호를 위해 비식별화된 가명 데이터 활용)*
+  - **`02_daily_transaction_extraction.sql`**
+      - Data QA 검증 및 일일 마감 대시보드 반영을 위한 트랜잭션 추출 및 지표 집계 쿼리.
+  - **`MSO_CRM_일일운영지표_RAW.xlsx`**
+      - 엑셀 다중 논리 함수 기반의 정합성 검증 시트 및 정제 완료 데이터셋 원본.
+  - **대시보드 원본 링크:** 👉 [MSO\_일일매출시트 대시보드 바로가기](https://docs.google.com/spreadsheets/d/1RXjJdhmyij5JQC2KHtNI_ndIr7pQMRP8DBqcwKrKr08/edit?gid=1242441615#gid=1242441615)
+
+-----
+
+## 👤 Author
+
+  - **GitHub**: [@Jayung77](https://github.com/Jayung77)
+  - **Repository**: [mso-crm-data-pipeline](https://github.com/Jayung77/mso-crm-data-pipeline)
+
+<!-- end list -->
+
+``` 
+
+---
+
+### 💡 적용 방법 안내
+1. GitHub의 [Jayung77/mso-crm-data-pipeline](https://github.com/Jayung77/mso-crm-data-pipeline) 저장소로 이동합니다.
+2. `README.md` 우측의 **연필 아이콘(Edit this file)**을 클릭합니다.
+3. 기존 내용을 전체 선택(`Ctrl + A`) 후 지우고, 위 코드를 그대로 붙여넣기(`Ctrl + V`) 합니다.
+4. 우측 상단의 초록색 **`Commit changes...`** 버튼을 누르시면 즉시 완벽하게 반영됩니다!
+
+```
