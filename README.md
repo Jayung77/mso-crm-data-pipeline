@@ -1,8 +1,3 @@
-**네, 6번뿐만 아니라 헤더부터 맨 아래까지 빠짐없이 순서대로 전부 넣으시면 됩니다\!**
-
-아래 코드 블록 우측 상단의 **`복사(Copy)`** 버튼을 누르시면, GitHub 저장소의 `README.md` 편집창에 **한 번에 통째로 붙여넣기(Ctrl+V)** 하실 수 있도록 완전체 마크다운 코드로 준비했습니다.
-
-```` markdown
 # 🏥 의료 MSO 비즈니스 데이터 파이프라인 및 CRM Data QA
 > **의료 MSO 환경의 결제·예약 트랜잭션 무결성 검증(Data QA) 및 실시간 경영 의사결정 KPI 대시보드 구축**
 
@@ -191,15 +186,3 @@ ORDER BY Total_Payment DESC;
   - **Repository**: [mso-crm-data-pipeline](https://github.com/Jayung77/mso-crm-data-pipeline)
 
 <!-- end list -->
-
-``` 
-
----
-
-### 💡 적용 방법 안내
-1. GitHub의 [Jayung77/mso-crm-data-pipeline](https://github.com/Jayung77/mso-crm-data-pipeline) 저장소로 이동합니다.
-2. `README.md` 우측의 **연필 아이콘(Edit this file)**을 클릭합니다.
-3. 기존 내용을 전체 선택(`Ctrl + A`) 후 지우고, 위 코드를 그대로 붙여넣기(`Ctrl + V`) 합니다.
-4. 우측 상단의 초록색 **`Commit changes...`** 버튼을 누르시면 즉시 완벽하게 반영됩니다!
-
-```
