@@ -1,188 +1,331 @@
-# 🏥 의료 MSO 비즈니스 데이터 파이프라인 및 CRM Data QA
-> **의료 MSO 환경의 결제·예약 트랜잭션 무결성 검증(Data QA) 및 실시간 경영 의사결정 KPI 대시보드 구축**
+# 🏥 의료 MSO 데이터 정제·적재 및 매출 분석
 
-[![Tech Stack](https://img.shields.io/badge/Stack-MySQL%20%7C%20HeidiSQL%20%7C%20Excel%20%7C%20GoogleSheets-blue)](https://github.com/Jayung77/mso-crm-data-pipeline)
-[![Data QA](https://img.shields.io/badge/Data%20QA-9%20Errors%20Cleaned%20(100%25)-success)](https://github.com/Jayung77/mso-crm-data-pipeline)
-[![Target Role](https://img.shields.io/badge/Target%20Role-Data%20Analyst%20%7C%20Data%20Ops%20%7C%20Hospital%20IT-orange)](https://github.com/Jayung77/mso-crm-data-pipeline)
+**MySQL · SQL · Excel · HeidiSQL을 활용한 의료 MSO 예약·결제 데이터 품질 검증, 정제 데이터 재적재 및 운영 KPI 분석 프로젝트**
 
----
-
-## 🛠️ 사용 기술 스택
-- **Database & Query:** SQL, MySQL, HeidiSQL
-- **Data QA & Governance:** Microsoft Excel (`VLOOKUP`, 다중 논리 함수 `IF`/`AND`/`OR`, 조건부 서식, 필터)
-- **BI & Dynamic Dashboard:** Google Sheets (`COUNTIFS`, `SUMIFS`, `LET`, `UNIQUE`, `SORT`, `CHOOSEROWS`)
+**Tech Stack:** MySQL · HeidiSQL · SQL · Microsoft Excel · Google Sheets  
+**Project Type:** 개인 프로젝트 / 가상 의료 MSO 데이터 기반  
+**Analysis Period:** 2026.10.15 ~ 2026.10.18 (4일)
 
 ---
 
-## 📌 1. 프로젝트 배경 및 추진 목표 (Overview)
-- **추진 배경:**
-  - 현업 의료 MSO(병원경영지원) 환경에서 환자 예약 시스템과 수납 단말기 기록 간의 휴먼 에러, 수납 누락, 취소 미반영 등으로 인한 데이터 불일치 빈번 발생.
-  - 데이터 정합성이 결여된 상태로 집계 시 실 수납액 과대 계상, 미수금 누락 등 경영진 의사결정 왜곡 초래.
-- **핵심 목표:**
-  1. **데이터 무결성(Data QA) 100% 확보**: 다중 검증 함수와 SQL을 활용한 논리적 이상치 9건 전수 탐지 및 정제.
-  2. **재발 방지 시스템 거버넌스 수립**: RDBMS 무결성 제약 조건(FK, CHECK) 및 4단계 정기 마감 QA 체계 설계.
-  3. **심화 비즈니스 인사이트 도출**: 신환/구환 세그먼트 분석 및 채널별 이탈률(노쇼/취소) 기반 실행 전략 제언.
+## 📌 1. 프로젝트 개요 (Overview)
+
+### 프로젝트 배경
+
+의료 MSO(병원경영지원) 환경에서는 예약 상태, 고객 기준정보, 결제 및 미수금 데이터의 일관성이 중요하다.
+
+고객 마스터와 거래 데이터가 일치하지 않거나 취소된 예약에 수납액이 남아 있는 경우, 매출 집계와 운영 KPI의 정확성이 떨어질 수 있다.
+
+본 프로젝트는 이러한 상황을 가정하여 **합성 예약·결제 데이터에 오류를 의도적으로 구성하고, SQL 및 Excel을 활용해 정제한 뒤 MySQL에 재적재하여 분석하는 과정**을 구현했다.
+
+실제 환자·병원 운영 데이터가 아닌 포트폴리오용 합성 데이터이며, 분석 결과는 실제 의료기관의 운영 성과를 의미하지 않는다.
+
+### 프로젝트 목표
+
+1. **데이터 품질 검증:** SQL과 Excel을 활용해 마스터 불일치, 결제정보 모순, 음수 미수금 탐지
+2. **데이터 정제 및 재적재:** 원천 데이터를 보존하면서 정제된 데이터를 별도 MySQL 테이블로 적재
+3. **데이터 정합성 검증:** 정제 전후 오류 건수 및 예약·수납 KPI 일치 여부 확인
+4. **비즈니스 KPI 분석:** 일일 매출, 신환·구환, 유입 채널별 수납 및 예약 이탈 분석
+5. **운영 개선안 도출:** 미수금 관리와 예약 이탈 감소를 위한 개선 방향 제안
 
 ---
 
-## 🗄️ 2. 데이터 아키텍처 & 관계형 모델링 (ERD)
+## 🛠️ 2. 사용 기술 (Tech Stack)
 
-환자 기준정보 마스터와 일일 예약/수납 트랜잭션 로그 간의 **1:N 관계형 데이터 스키마**를 설계하여 데이터 중복을 제거하고 참조 무결성을 보장했습니다.
+| 구분 | 기술 | 활용 내용 |
+|---|---|---|
+| Database | MySQL | 고객 마스터 및 예약·결제 거래 테이블 생성·관리 |
+| SQL Client | HeidiSQL | SQL 실행, 테이블 생성, CSV 데이터 Import |
+| SQL | MySQL SQL | SELECT, JOIN, CASE, COUNT, SUM, GROUP BY를 활용한 오류 탐지 및 KPI 집계 |
+| Data QA | Microsoft Excel | VLOOKUP, IF, AND, OR 등을 활용한 데이터 검수·정제 |
+| Dashboard | Google Sheets | COUNTIFS, SUMIFS 등으로 KPI 계산 및 시각화 |
+| Data Transfer | CSV (UTF-8) | 정제 데이터를 MySQL로 재적재하기 위한 중간 파일 |
 
-```text
-[customer_master] (환자 마스터 / 20건)
-├── Chart_No (PK, VARCHAR(20))
-├── Customer_ID (VARCHAR(20))
-├── Customer_Name (VARCHAR(50))
-├── Phone_Number (VARCHAR(20))
-├── Customer_Grade (ENUM('일반', '우수', 'VIP'))
-└── Join_Date (DATE)
-       │ 1
-       │
-       │ N (1:N 참조 무결성 연결)
-       ▼
-[crm_transaction_log] (진료/결제 트랜잭션 / 50건)
-├── Reservation_Date (DATE)
-├── Reservation_Time (TIME)
-├── Chart_No (FK, REFERENCES customer_master)
-├── Is_First_Visit (CHAR(1), CHECK IN ('Y', 'N'))
-├── Inflow_Channel (VARCHAR(30))
-├── Consultant_ID (VARCHAR(20))
-├── Reservation_Status (ENUM('진료완료', '노쇼', '예약취소'))
-├── Treatment_Item (VARCHAR(50))
-├── Payment_Amount (INT, CHECK >= 0)
-└── Unpaid_Amount (INT, CHECK >= 0)
+---
 
-````
+## 🗄️ 3. 데이터 구조 및 분석 대상
 
------
+### 주요 테이블
 
-## 🔍 3. 데이터 파이프라인 및 정합성 검증 (Data QA & Cleansing)
+| 테이블 | 데이터 규모 | 역할 |
+|---|---:|---|
+| `customer_master` | 20건 | 고객 차트번호, 고객 등급 등 기준정보 관리 |
+| `crm_transaction_log` | 50건 | 의도적 오류 9건이 포함된 원천 예약·결제 데이터 |
+| `crm_transaction_clean` | 47건 | Excel에서 정제 후 MySQL에 다시 적재한 분석용 데이터 |
 
-원천 데이터 50건 중 **총 9건의 이상치 및 논리적 오류**를 3단계로 탐지하여 데이터 신뢰도를 100%로 복원했습니다.
+`customer_master`와 거래 데이터는 `Chart_No`를 기준으로 연결된다.
 
-| 구분        | 검증 유형                     | 발생 시나리오 및 이상 데이터                                       | 검증 및 조치 방식 (수식 / SQL)                                                                                         | 조치 건수  |
-| :-------: | :-----------------------: | :----------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :----: |
-| **QA-01** | **기준정보 누락<br>(참조 무결성)**   | 마스터에 미등록된 임의 차트번호<br>(`C299999`, `C288888`, `C277777`) | `=VLOOKUP($C2, customer_master!$A$2:$F$21, 1, 0)`<br>➔ `#N/A` 탐지 후 행 제외 처리 (식별 불가 데이터 분리)                     | **3건** |
-| **QA-02** | **비즈니스 모순<br>(가공 매출 방지)** | 예약취소/노쇼 상태임에도 결제액이나 미수 잔금이 잔존                          | `=IF(OR(G2="예약취소", G2="노쇼"), IF(AND(I2=0, J2=0), TRUE, FALSE), TRUE)`<br>➔ `FALSE` 탐지 후 **수납액 및 잔금 0원 일괄 보정** | **5건** |
-| **QA-03** | **수납 이상치<br>(도메인 제약)**    | 결제 단말기/수기 기입 착오로 미수 잔금이 음수(-20,000원)로 표기               | 잔금 0원 정상화 조치 (`Unpaid_Amount = 0`)                                                                            | **1건** |
+원천 거래 테이블에는 마스터에 등록되지 않은 차트번호도 포함되어 있으므로, SQL `LEFT JOIN`으로 참조 불일치 여부를 검증했다.
 
------
+원천 테이블을 수정하지 않고 정제 데이터를 별도 테이블로 관리하여 **정제 전후 데이터 비교가 가능하도록 구성**했다.
 
-## 🛡️ 4. 데이터 운영 및 재발 방지 거버넌스 (Data Governance)
+### 주요 데이터 컬럼
 
-일회성 수기 정제에 그치지 않고, 시스템 입력단 원천 차단 및 정기 마감 SLA를 수립했습니다.
+- `Reservation_Date`, `Reservation_Time`: 예약 일자 및 시간
+- `Chart_No`: 고객 차트번호
+- `Is_First_Visit`: 거래별 신환 여부 기록값 (Y/N)
+- `Inflow_Channel`: 고객 유입 채널
+- `Consultant_ID`: 상담 담당자
+- `Reservation_Status`: 진료완료 / 노쇼 / 예약취소
+- `Treatment_Item`: 시술 항목
+- `Payment_Amount`: 실수납액
+- `Unpaid_Amount`: 미수금
 
-### 1\) 시스템 입력단 제약 조건 (System Constraints)
+---
 
-  - **외래키(FK) 참조 무결성 강제**: 마스터에 없는 차트번호 입력 원천 차단.
-  - **예약 부도 시 결제액 0원 강제 규칙**:
-    ``` sql
-    CHECK (
-      (Reservation_Status IN ('노쇼', '예약취소') AND Payment_Amount = 0 AND Unpaid_Amount = 0)
-      OR (Reservation_Status = '진료완료')
-    )
-    
-    ```
-  - **음수 금액 방지**: `CHECK (Payment_Amount >= 0 AND Unpaid_Amount >= 0)`
+## 🔍 4. 데이터 품질 검증 및 정제 (Data QA)
 
-### 2\) 4단계 QA 운영 주기 (SLA)
+원천 거래 데이터 50건에 포함된 **9건의 의도적 이상 데이터를 SQL과 Excel로 탐지·처리**했다.
 
-1.  **실시간 (Real-time)**: CRM 입력 화면에서 유효성 검사 규칙 적용 (이상치 입력 1차 차단).
-2.  **일일 마감 (19:30)**: PG 카드사 승인 매출과 EMR 수납액 1:1 대사 (오차 0원 검증).
-3.  **익일 감사 (09:00)**: 전일 노쇼/취소 환자의 수납액 0원 보정 여부 일괄 감사.
-4.  **월간 결산**: Zero-Defect 데이터 품질 모니터링 리포트 발행.
+| 검증 유형 | 오류 내용 | 건수 | 처리 방식 |
+|---|---|---:|---|
+| QA-01 고객 마스터 불일치 | 마스터에 등록되지 않은 차트번호 | 3건 | 분석 대상에서 제외 |
+| QA-02 예약 상태·금액 모순 | 노쇼·취소 상태에 수납액 또는 미수금 잔존 | 5건 | 합성 데이터 정제 규칙에 따라 해당 금액을 0원으로 수정 |
+| QA-03 음수 미수금 | 미수금 -20,000원 발생 | 1건 | 미수금을 0원으로 수정 |
+| **합계** | | **9건** | |
 
------
+### 활용한 검증 방법
 
-## 📊 5. 핵심 경영 인사이트 및 전략적 제언 (Key Insights)
+**SQL 기반 검증**
+- `LEFT JOIN`을 활용한 고객 마스터 미등록 차트번호 탐지
+- `WHERE` 및 `CASE WHEN`을 활용한 예약 상태·금액 불일치 확인
+- 음수 미수금 및 정제 전후 오류 건수 확인
 
-정제 완료된 47건(진료 완료 34건) 데이터를 기반으로 도출한 실행 가능한(Actionable) 전략입니다.
+**Excel 기반 검증**
+- `VLOOKUP`으로 고객 마스터 존재 여부 확인
+- `IF`, `AND`, `OR`로 예약 상태에 따른 금액 검증
+- 오류 데이터 확인 및 수납액·미수금 수정
 
-### 💡 1. 인스타그램: 최고 매출 채널 & 미수 잔금 집중 리스크 관리
+**정제 결과**
+- 원천 거래 데이터: 50건
+- 마스터 불일치 제외: 3건
+- 금액 오류 수정: 6건
+- 최종 분석 대상: **47건**
 
-  - **현황**: 총 5건 진료 완료로 \*\*4,245,000원(전체 수납액의 30.8%)\*\*을 달성한 매출 기여도 1위 채널.
-  - **리스크**: 전체 미수 잔금(900,000원) 중 \*\*88.9%(800,000원)\*\*가 인스타그램 유입 환자에게 편중 (`C250014` 울쎄라 300샷 잔금 30만 원, `C260028` 써마지 600샷 잔금 50만 원).
-  - **실행 제언**: 고단가 프리미엄 시술에 집중된 유입 특성을 고려하여, **사전 예약금(Deposit) 결제 프로토콜 도입** 및 당일 수납 완납 원칙 확립 필요.
+※ 노쇼·취소 상태의 금액을 0원으로 보정한 것은 본 합성 데이터에 정의한 검증 규칙이다. 실제 의료기관에서는 예약금·취소 수수료·환불 정책을 확인해야 한다.
 
-### 💡 2. 카카오톡: 이탈률 0% 및 강력한 환자 락인(Lock-in)
+---
 
-  - **현황**: 총 9건 예약 중 노쇼/취소 0건으로 **진료 이행도 100% 달성**, 안정적인 수납액(2,645,000원, 비중 19.2%) 및 미수금 50,000원에 불과.
-  - **실행 제언**: 진료 신뢰도가 검증된 채널이므로 정기 리텐션 알림톡 및 지인 추천 프로모션을 연계하여 충성 고객층으로 확고히 락인.
+## 🔄 5. MySQL 데이터 재적재 프로세스 (Data Loading)
 
-### 💡 3. 네이버검색 & 당근마켓: 높은 이탈률(노쇼/취소) 개선 및 스케줄링 최적화
+본 프로젝트는 Excel에서 정제한 데이터를 CSV로 변환한 후, HeidiSQL을 이용하여 **별도 MySQL 테이블에 재적재**했다.
 
-  - **현황**: 네이버검색 이탈률 **57.1%**(7건 중 4건), 당근마켓 이탈률 **40.0%**(5건 중 2건). 병원 전체 이탈(13건)의 \*\*46.2%\*\*가 두 채널에 집중되어 원장단 진료 공백 초래.
-  - **실행 제언**: 예약 전일/당일 카카오 알림톡 자동 재확인 시스템 의무화 및 당일 대기 환자를 우선 배정하는 가변 스케줄링(오버부킹 버퍼) 도입.
+### 전체 데이터 처리 흐름
 
------
+**STEP 1. MySQL 원천 데이터 생성**
 
-## 💻 6. 주요 SQL 스크립트 (Core SQL)
+- `customer_master` 테이블에 고객 기준정보 20건 생성
+- `crm_transaction_log` 테이블에 예약·결제 데이터 50건 생성
+- SQL로 예약·결제 데이터의 오류 유형 확인
 
-\<details\>
-\<summary\>\<b\>▶ Data QA: 이상치 탐지 및 자동 정제 쿼리\</b\>\</summary\>
+**STEP 2. 데이터 추출 및 Excel 정제**
 
-``` sql
--- 1. 기준정보 미등록 이상 차트번호 탐지
-SELECT t.*
-FROM crm_transaction_log t
-LEFT JOIN customer_master c ON t.Chart_No = c.Chart_No
-WHERE c.Chart_No IS NULL;
+- 거래 데이터를 Excel에서 검수
+- 고객 마스터 미등록 3건 제외
+- 예약 상태·금액 모순 5건 및 음수 미수금 1건 수정
+- 최종 정제 데이터 47건 확보
 
--- 2. 비즈니스 로직 모순 데이터(노쇼/취소 건의 가공 매출) 0원 보정
-UPDATE crm_transaction_log
-SET Payment_Amount = 0, Unpaid_Amount = 0
-WHERE Reservation_Status IN ('노쇼', '예약취소')
-  AND (Payment_Amount > 0 OR Unpaid_Amount > 0);
+**STEP 3. CSV 파일 생성**
 
--- 3. 음수 잔금 정상화
-UPDATE crm_transaction_log
-SET Unpaid_Amount = 0
-WHERE Unpaid_Amount < 0;
+- 정제된 거래 데이터의 10개 컬럼을 CSV로 저장
+- 파일명: `crm_transaction_clean.csv`
+- 인코딩: UTF-8
+- 헤더 행 포함
 
-```
+**STEP 4. 정제 테이블 생성**
 
-\</details\>
+MySQL에서 원천 거래 테이블과 동일한 컬럼 구조의 별도 테이블을 생성했다.
 
-\<details\>
-\<summary\>\<b\>▶ Business KPI: 일일 마감 및 채널별 성과 집계 쿼리\</b\>\</summary\>
+`CREATE TABLE practice.crm_transaction_clean LIKE practice.crm_transaction_log;`
 
-``` sql
--- 채널별 성과, 신환 비율, 수납액 및 이탈률 집계
-SELECT 
-    Inflow_Channel,
-    COUNT(*) AS Total_Reservations,
-    SUM(CASE WHEN Reservation_Status = '진료완료' THEN 1 ELSE 0 END) AS Completed_Count,
-    SUM(CASE WHEN Reservation_Status = '노쇼' THEN 1 ELSE 0 END) AS No_Show_Count,
-    SUM(CASE WHEN Reservation_Status = '예약취소' THEN 1 ELSE 0 END) AS Cancelled_Count,
-    SUM(Payment_Amount) AS Total_Payment,
-    SUM(Unpaid_Amount) AS Total_Unpaid,
-    ROUND((SUM(CASE WHEN Reservation_Status IN ('노쇼', '예약취소') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS Churn_Rate_Pct
-FROM crm_transaction_log
-GROUP BY Inflow_Channel
-ORDER BY Total_Payment DESC;
+이 방식을 통해 원천 거래 테이블을 보존하면서 정제 데이터를 분리했다.
 
-```
+**STEP 5. HeidiSQL CSV Import**
 
-\</details\>
+HeidiSQL의 CSV Import 기능으로 정제 파일을 MySQL에 적재했다.
 
------
+- 대상 테이블: `practice.crm_transaction_clean`
+- 데이터 파일: `crm_transaction_clean.csv`
+- 문자 인코딩: `utf8mb4`
+- 필드 구분자: 쉼표(`,`)
+- 헤더 첫 행 제외
+- 적재 방식: `INSERT`
+- 클라이언트 측 CSV 파일 분석 방식 사용
 
-## 📂 파일 구성 안내 (Repository Structure)
+서버의 `LOCAL INFILE` 제한으로 직접 파일 로드가 되지 않아, HeidiSQL의 클라이언트 측 CSV Import 방식으로 적재했다.
 
-  - **`01_schema_and_dummy_data_setup.sql`**
-      - 기준정보 및 트랜잭션 테이블 생성(`CREATE TABLE`, 무결성 제약조건 포함) 및 샘플 데이터 적재 스크립트. *(※ 개인정보 보호를 위해 비식별화된 가명 데이터 활용)*
-  - **`02_daily_transaction_extraction.sql`**
-      - Data QA 검증 및 일일 마감 대시보드 반영을 위한 트랜잭션 추출 및 지표 집계 쿼리.
-  - **`MSO_CRM_일일운영지표_RAW.xlsx`**
-      - 엑셀 다중 논리 함수 기반의 정합성 검증 시트 및 정제 완료 데이터셋 원본.
-  - **대시보드 원본 링크:** 👉 [MSO\_일일매출시트 대시보드 바로가기](https://docs.google.com/spreadsheets/d/1RXjJdhmyij5JQC2KHtNI_ndIr7pQMRP8DBqcwKrKr08/edit?gid=1242441615#gid=1242441615)
+**STEP 6. 적재 후 SQL 검증**
 
------
+정제 데이터가 정상적으로 반영되었는지 확인하기 위해 다음 항목을 검증 대상으로 설정했다.
+
+- 적재 거래 건수: 47건
+- 고객 마스터 미등록 차트번호: 0건
+- 노쇼·취소 거래의 금액 모순: 0건
+- 음수 미수금: 0건
+- 진료 완료·노쇼·예약취소 건수
+- 실수납액·미수금·총 청구액과 Excel 집계값 일치 여부
+
+이 검증은 `COUNT`, `SUM`, `CASE WHEN`, `LEFT JOIN`을 이용한 SQL로 수행하도록 구성했다.
+
+---
+
+## 📊 6. 핵심 운영 KPI 분석
+
+정제된 47건의 데이터를 기준으로 일일 매출과 예약·수납 현황을 분석했다.
+
+### 주요 분석 결과
+
+| 지표 | 결과 |
+|---|---:|
+| 전체 예약 | 47건 |
+| 진료 완료 | 34건 |
+| 노쇼 | 7건 |
+| 예약취소 | 6건 |
+| 신환 진료 완료 | 15건 |
+| 구환 진료 완료 | 19건 |
+| 실수납액 | 13,804,000원 |
+| 미수금 | 900,000원 |
+| 총 청구액 | 14,704,000원 |
+| 전체 예약 이탈률 | 27.7% |
+
+※ 신환·구환은 거래별 `Is_First_Visit` 기록값을 기준으로 집계했다.
+
+### 주요 분석 영역
+
+**① 일일 매출 현황**
+
+일별 진료 완료·노쇼·취소 건수와 수납액·미수금을 분석하여 운영 실적을 비교했다.
+
+**② 신환·구환 분석**
+
+신환과 구환의 완료 건수, 수납 기여도, 예약 이탈률을 비교했다.
+
+**③ 유입 채널별 분석**
+
+인스타그램, 카카오톡, 네이버검색 등 유입 채널별 예약 건수·수납액·미수금·이탈률을 비교했다.
+
+**④ 시술 및 고객 등급 분석**
+
+시술별 수납 기여도와 고객 등급별 거래 고객 1인당 평균 실수납액을 분석했다.
+
+---
+
+## 💡 7. 주요 인사이트 및 개선 제안 (Key Insights)
+
+### ① 인스타그램 — 높은 수납 기여도와 미수금 집중
+
+- 실수납액: **4,245,000원**
+- 전체 수납액 대비 비중: **30.8%**
+- 미수금: **800,000원**
+- 전체 미수금 대비 비중: **88.9%**
+
+**개선 제안:** 미수금 발생 거래의 원인을 점검하고 고액 예약에 대한 사전 수납 안내 및 예약금 적용 가능성을 검토한다.
+
+### ② 카카오톡 — 낮은 예약 이탈률
+
+- 전체 예약: 9건
+- 진료 완료: 9건
+- 노쇼·예약취소: 0건
+- 예약 이탈률: **0%**
+
+**개선 제안:** 예약 안내 및 재방문 커뮤니케이션에 활용할 수 있는지 검토한다.
+
+다만 4일간의 소규모 표본이므로 해당 채널의 장기적인 고객 유지 효과가 입증된 것은 아니다.
+
+### ③ 네이버검색·당근마켓 — 예약 이탈 관리 필요
+
+- 네이버검색: 7건 중 4건 이탈 (**57.1%**)
+- 당근마켓: 5건 중 2건 이탈 (**40.0%**)
+- 두 채널의 이탈 건수: 총 6건
+
+**개선 제안:** 예약 전일 확인 안내, 당일 재확인 메시지, 취소 발생 시 대기 예약 안내 등의 운영 개선안을 검토한다.
+
+### ④ 예약금 시나리오 분석
+
+예약금 도입으로 일부 예약 이탈이 감소한다는 가정을 두고, 잠재 청구액 회복 가능성을 시나리오별로 계산했다.
+
+이는 실제로 발생한 매출 증가가 아니라 **가정에 기반한 추정 분석**이며, 예약금 정책의 효과를 판단하려면 추가 운영 데이터가 필요하다.
+
+---
+
+## 🛡️ 8. 데이터 품질 관리 개선 제안
+
+이번 프로젝트에서는 SQL과 Excel을 이용한 정합성 검증을 수행했다.
+
+향후 실제 운영 환경에 적용한다면 다음 사항을 검토할 수 있다.
+
+1. **입력값 검증:** 예약 상태, 차트번호 및 금액 입력 시 유효성 검사
+2. **참조 무결성 관리:** 고객 마스터와 거래 테이블 간 FK 적용 가능성 검토
+3. **일일 마감 대사:** 예약·결제·수납 시스템 간 금액 불일치 점검
+4. **정기 QA 리포트:** 오류 건수와 유형을 주기적으로 모니터링
+5. **데이터 처리 자동화:** 반복되는 정제·적재·검증 작업의 SQL/Python 자동화 검토
+
+위 항목은 **향후 개선 제안**이며, 본 프로젝트에서 실제 운영 시스템이나 자동화 파이프라인을 구축한 것은 아니다.
+
+---
+
+## 💻 9. SQL 주요 작업
+
+본 프로젝트에서 SQL은 크게 세 가지 목적으로 사용했다.
+
+**① 원천 데이터 검증**
+
+- 고객 마스터와 거래 테이블의 `LEFT JOIN`
+- 차트번호 불일치 확인
+- 취소·노쇼 금액 이상 및 음수 미수금 확인
+
+**② 정제 데이터 집계**
+
+- 날짜별 예약 상태 및 수납액 집계
+- 유입 채널별 신환 비중과 이탈률 계산
+- 시술별 수납 기여도 분석
+- 고객 등급별 실수납액 분석
+
+**③ MySQL 재적재 및 검증**
+
+- 정제 데이터 저장용 별도 테이블 생성
+- HeidiSQL CSV Import를 이용한 데이터 적재
+- 적재 후 건수·오류·KPI 검증 SQL 작성
+
+세부 SQL 쿼리는 저장소의 SQL 스크립트와 Excel SQL 명세서에서 확인할 수 있다.
+
+---
+
+## 📂 10. 저장소 구성 (Repository Structure)
+
+**SQL 파일**
+
+- `01_schema_and_dummy_data_setup.sql` — 고객 마스터 및 원천 거래 테이블 생성, 합성 데이터 구성
+- `02_daily_transaction_extraction.sql` — 원천 데이터 추출 및 오류 검증 SQL
+- `03_clean_data_validation.sql` — 정제 후 데이터 품질 검증 및 KPI 집계 SQL
+
+**데이터 파일**
+
+- `crm_transaction_clean.csv` — 정제된 거래 데이터 47건
+
+**대시보드 및 분석 파일**
+
+- `MSO_일일매출시트.xlsx` — 프로젝트개요, KPI 분석, 정합성 검증, SQL 명세서, RAW_DATA, customer_master를 포함한 Excel 통합 문서
+
+**Google Sheets**
+
+[의료 MSO 운영 KPI 대시보드 바로가기](https://docs.google.com/spreadsheets/d/1RXjJdhmyij5JQC2KHtNI_ndIr7pQMRP8DBqcwKrKr08/edit)
+
+※ 파일 목록과 경로는 GitHub 업로드 시 실제 저장소 구조에 맞춰 최종 반영한다.
+
+---
+
+## ⚠️ 11. 분석 범위 및 한계
+
+- 데이터는 실제 환자 정보가 아닌 포트폴리오용 **합성 데이터**다.
+- 분석 기간은 4일, 정제 후 거래 데이터는 47건으로 표본 규모가 작다.
+- 인스타그램 미수금 집중이나 특정 채널의 높은 이탈률은 해당 표본의 관찰 결과다.
+- 예약금 도입 및 예약 확인 절차의 효과는 가정에 따른 개선 제안이며 실제 성과로 검증되지 않았다.
+- 정제 과정은 Excel을 이용한 수동 검수와 HeidiSQL CSV Import 기반으로 진행했으며, 자동화된 ETL 파이프라인은 구현하지 않았다.
+
+---
 
 ## 👤 Author
 
-  - **GitHub**: [@Jayung77](https://github.com/Jayung77)
-  - **Repository**: [mso-crm-data-pipeline](https://github.com/Jayung77/mso-crm-data-pipeline)
-
-<!-- end list -->
+- GitHub: [@Jayung77](https://github.com/Jayung77)
+- Repository: [mso-crm-data-pipeline](https://github.com/Jayung77/mso-crm-data-pipeline)
