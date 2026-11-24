@@ -1,12 +1,19 @@
-/* ==========================================================================
-Project: MSO CRM 일일 운영 지표 및 매출 마감 데이터 파이프라인
+
+/* ============================================================
+Project: 의료 MSO 데이터 정제·적재 및 매출 분석
 File: 02_daily_transaction_extraction.sql
 Author: 박재정
-Description: 
-  - 1. 원천 데이터 추출 (Excel QA 템플릿 및 Sheets 대시보드 이관용)
-  - 2. SQL 기반 Data QA 이상치 탐지 쿼리 (9건 전수 식별)
-  - 3. 경영 의사결정 지원을 위한 일일 마감 KPI 및 채널 기여도 집계 쿼리
-========================================================================== */
+
+Description:
+  1. 원천 예약·결제 데이터 및 고객 마스터 추출
+  2. 정제 전 데이터의 이상치 9건 탐지
+  3. 정제 완료 테이블 기반 일일·채널별 KPI 집계
+
+Execution:
+  - 섹션 1~2: 01번 SQL 실행 후 사용 가능
+  - 섹션 3: crm_transaction_clean 적재 후 실행
+============================================================ */
+
 
 USE practice;
 
@@ -80,32 +87,95 @@ FROM crm_transaction_log
 WHERE Unpaid_Amount < 0;
 
 
--- --------------------------------------------------------------------------
--- 3. Business KPI 집계 쿼리 (대시보드 검증 및 BI 연동)
--- --------------------------------------------------------------------------
 
--- (1) 마케팅 유입 채널별 종합 실적 및 이탈률(노쇼+취소) 분석
-SELECT 
+-- ============================================================
+-- 3. 정제 완료 데이터 기반 Business KPI 집계
+-- ============================================================
+
+-- KPI-01. 유입 채널별 예약·수납 및 이탈률 분석
+SELECT
     Inflow_Channel,
     COUNT(*) AS Total_Reservations,
-    SUM(CASE WHEN Reservation_Status = '진료완료' THEN 1 ELSE 0 END) AS Completed_Count,
-    SUM(CASE WHEN Reservation_Status = '노쇼' THEN 1 ELSE 0 END) AS No_Show_Count,
-    SUM(CASE WHEN Reservation_Status = '예약취소' THEN 1 ELSE 0 END) AS Cancel_Count,
-    -- 정제 기준: 진료완료 건에 대해서만 정상 결제액 집계
-    SUM(CASE WHEN Reservation_Status = '진료완료' THEN Payment_Amount ELSE 0 END) AS Actual_Revenue,
-    SUM(CASE WHEN Reservation_Status = '진료완료' AND Unpaid_Amount > 0 THEN Unpaid_Amount ELSE 0 END) AS Total_Unpaid,
-    ROUND((SUM(CASE WHEN Reservation_Status IN ('노쇼', '예약취소') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS Churn_Rate_Pct
-FROM crm_transaction_log
-GROUP BY Inflow_Channel
-ORDER BY Actual_Revenue DESC;
 
--- (2) 일자별 마감 수납 실적 및 예약 이행도 요약
-SELECT 
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        THEN 1 ELSE 0
+    END) AS Completed_Count,
+
+    SUM(CASE
+        WHEN Reservation_Status = '노쇼'
+        THEN 1 ELSE 0
+    END) AS NoShow_Count,
+
+    SUM(CASE
+        WHEN Reservation_Status = '예약취소'
+        THEN 1 ELSE 0
+    END) AS Cancel_Count,
+
+    SUM(CASE
+        WHEN Is_First_Visit = 'Y'
+        THEN 1 ELSE 0
+    END) AS New_Patient_Count,
+
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        THEN Payment_Amount ELSE 0
+    END) AS Total_Payment,
+
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        THEN Unpaid_Amount ELSE 0
+    END) AS Total_Unpaid,
+
+    ROUND(
+        100.0 * SUM(CASE
+            WHEN Reservation_Status IN ('노쇼', '예약취소')
+            THEN 1 ELSE 0
+        END) / NULLIF(COUNT(*), 0),
+        1
+    ) AS Drop_Rate
+
+FROM crm_transaction_clean
+GROUP BY Inflow_Channel
+ORDER BY Total_Payment DESC;
+
+
+-- KPI-02. 일자별 마감 및 예약 현황
+SELECT
     Reservation_Date,
-    COUNT(*) AS Daily_Total_Bookings,
-    SUM(CASE WHEN Reservation_Status = '진료완료' THEN 1 ELSE 0 END) AS Daily_Completed_Count,
-    SUM(CASE WHEN Reservation_Status = '진료완료' THEN Payment_Amount ELSE 0 END) AS Daily_Revenue,
-    SUM(CASE WHEN Reservation_Status = '진료완료' AND Unpaid_Amount > 0 THEN Unpaid_Amount ELSE 0 END) AS Daily_Unpaid
-FROM crm_transaction_log
+    COUNT(*) AS Total_Reservations,
+
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        THEN 1 ELSE 0
+    END) AS Completed_Count,
+
+    SUM(CASE
+        WHEN Reservation_Status = '노쇼'
+        THEN 1 ELSE 0
+    END) AS NoShow_Count,
+
+    SUM(CASE
+        WHEN Reservation_Status = '예약취소'
+        THEN 1 ELSE 0
+    END) AS Cancel_Count,
+
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        AND Is_First_Visit = 'Y'
+        THEN 1 ELSE 0
+    END) AS New_Patients,
+
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        THEN Payment_Amount ELSE 0
+    END) AS Total_Payment,
+
+    SUM(CASE
+        WHEN Reservation_Status = '진료완료'
+        THEN Unpaid_Amount ELSE 0
+    END) AS Total_Unpaid
+
+FROM crm_transaction_clean
 GROUP BY Reservation_Date
-ORDER BY Reservation_Date ASC;
+ORDER BY Reservation_Date;
